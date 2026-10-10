@@ -1,0 +1,6 @@
+.sites/
+node_modules/
+*.tar.gz
+*.tgz
+preview-*.png
+preview-*.jpg
