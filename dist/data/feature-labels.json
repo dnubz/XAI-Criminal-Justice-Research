@@ -1,0 +1,40 @@
+{
+  "source": "User-provided screenshots of Feature in dataset",
+  "reference_url": "https://app.notion.com/p/Feature-in-dataset-33e96beac3198087a42ec114d4972729",
+  "features": {
+    "PDRB_per_kapita_HK": {
+      "label": "PDRB per kapita (harga konstan)",
+      "description": "PDRB per kapita atas harga konstan.",
+      "unit": null
+    },
+    "PDRB_per_kapita": {
+      "label": "PDRB per kapita (harga berlaku)",
+      "description": "PDRB per kapita atas harga berlaku.",
+      "unit": null
+    },
+    "PPKMLA": {
+      "label": "Kelahiran pertama sebelum usia 20 tahun",
+      "description": "Persentase perempuan pernah kawin yang melahirkan anak pertama di usia kurang dari 20 tahun.",
+      "qualifier": "Pada perempuan yang pernah kawin",
+      "unit": "%"
+    },
+    "IPG": {
+      "label": "Indeks Pembangunan Gender",
+      "description": "Indeks Pembangunan Gender.",
+      "unit": "poin"
+    },
+    "JPM": { "label": "Jumlah penduduk miskin", "description": "Jumlah penduduk miskin dalam ribuan jiwa.", "unit": "ribu jiwa" },
+    "jumlah_PPM": { "label": "Penduduk miskin per semester", "description": "Jumlah penduduk miskin pada semester 1 atau semester 2." },
+    "PPDPSK_L": { "label": "Laki-laki di bawah garis kemiskinan", "description": "Persentase penduduk laki-laki dengan pendapatan di bawah garis kemiskinan.", "unit": "%" },
+    "PPDPSK_P": { "label": "Perempuan di bawah garis kemiskinan", "description": "Persentase penduduk perempuan dengan pendapatan di bawah garis kemiskinan.", "unit": "%" },
+    "TPAKP": { "label": "Partisipasi angkatan kerja perempuan", "description": "Tingkat Partisipasi Angkatan Kerja Perempuan.", "unit": "%" },
+    "RLS_L": { "label": "Lama sekolah laki-laki", "description": "Rata-rata lama sekolah laki-laki.", "unit": "tahun" },
+    "RLS_P": { "label": "Lama sekolah perempuan", "description": "Rata-rata lama sekolah perempuan.", "unit": "tahun" },
+    "JPT": { "label": "Perguruan tinggi", "description": "Jumlah perguruan tinggi.", "unit": "perguruan tinggi" },
+    "JTP": { "label": "Dosen", "description": "Jumlah dosen.", "unit": "dosen" },
+    "JM": { "label": "Mahasiswa", "description": "Jumlah mahasiswa.", "unit": "mahasiswa" },
+    "APK": { "label": "Partisipasi kasar", "description": "Angka Partisipasi Kasar.", "unit": "%" },
+    "APM": { "label": "Partisipasi murni", "description": "Angka Partisipasi Murni.", "unit": "%" },
+    "PTP": { "label": "Penduduk tidak bersekolah", "description": "Persentase tidak bersekolah.", "unit": "%" }
+  }
+}

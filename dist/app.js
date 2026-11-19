@@ -1,68 +1,297 @@
-/* Region predictions are loaded from data/predictions.json. No inference runs in the browser. */
-'use strict';
-const $ = (q) => document.querySelector(q);
-const $$ = (q) => [...document.querySelectorAll(q)];
-const LEVELS = {low:{label:'Rendah',color:'#75b89b'},moderate:{label:'Sedang',color:'#e6c363'},high:{label:'Tinggi',color:'#db8174'},unavailable:{label:'Belum tersedia',color:'#b8c2c4'}};
-const CATEGORIES = {sexual:'Kekerasan seksual',nonsexual:'Kekerasan nonseksual'};
-const state = {category:'sexual',risk:null,island:'all',selected:'32',view:'map',query:'',year:null};
-let dataset,geo,map,regions,labels;
+import { formatIndicator, formatContribution, resolvedIndicators, predictionReference, compareWithPeers } from './indicator-utils.mjs';
+
+const $ = selector => document.querySelector(selector);
+const $$ = selector => [...document.querySelectorAll(selector)];
+const LEVELS = {
+  low: { label: 'Rendah', color: '#62ac87' },
+  moderate: { label: 'Sedang', color: '#e4bd51' },
+  high: { label: 'Tinggi', color: '#dc7567' },
+  unavailable: { label: 'Belum tersedia', color: '#b8c5c3' },
+};
+const CATEGORIES = { sexual: 'Kekerasan seksual', nonsexual: 'Kekerasan nonseksual' };
+const state = { category: 'sexual', risk: null, island: 'all', selected: '32', query: '', year: null, explanationMethod: 'shap' };
 const layers = new Map();
-const escapeHTML = (s) => String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function islandFor(code){const n=Number(code);return n<30?'Sumatera':n<40?'Jawa':n<60?'Bali & Nusa Tenggara':n<70?'Kalimantan':n<80?'Sulawesi':n<90?'Maluku':'Papua';}
-function record(code){return dataset.predictions.find(p=>String(p.province_code)===String(code)&&p.year===state.year);}
-function prediction(code,category=state.category){return record(code)?.[category]??null;}
-function level(code,category=state.category){return prediction(code,category)?.level??'unavailable';}
-function badge(value){const l=LEVELS[value]??LEVELS.unavailable;return `<span class="risk-badge badge-${escapeHTML(value)}"><span class="risk-dot ${escapeHTML(value)}"></span>${l.label==='Belum tersedia'?'Belum tersedia':'Risiko '+l.label.toLowerCase()}</span>`;}
-function tooltip(feature){const c=feature.properties.KODE_PROV;return `<div class="tip-heading">${escapeHTML(feature.properties.PROVINSI)}</div><div class="tip-label">${state.year} · ${dataset.is_demo?'Data ilustrasi':'Prediksi model'}</div>${Object.entries(CATEGORIES).map(([key,title])=>`<div class="tip-row"><span>${title.replace('Kekerasan ','')}</span><span class="tip-level"><span class="risk-dot ${level(c,key)}"></span>${LEVELS[level(c,key)].label}</span></div>`).join('')}<div class="tip-label" style="margin:7px 0 0">Klik untuk melihat detail →</div>`;}
-function visible(feature){const code=feature.properties.KODE_PROV;return(state.island==='all'||islandFor(code)===state.island)&&(!state.risk||level(code)===state.risk);}
-function style(feature){const code=feature.properties.KODE_PROV,shown=visible(feature),selected=code===state.selected;return{fillColor:shown?LEVELS[level(code)].color:'#dce5df',fillOpacity:shown?.9:.35,color:selected?'#38694d':'#f5f9f5',weight:selected?2:1,opacity:shown?1:.6};}
-function selectProvince(code,{zoom=false}={}){
- state.selected=String(code); renderDetail(); refreshMap(); renderTable();
- if(zoom&&layers.has(state.selected)&&map){map.fitBounds(layers.get(state.selected).getBounds(),{padding:[65,65],maxZoom:7,animate:!matchMedia('(prefers-reduced-motion: reduce)').matches});}
- $('#live-status').textContent=`${$('#province-name').textContent} dipilih. ${CATEGORIES[state.category]}: ${LEVELS[level(code)].label}.`;
+let dataset, geo, map, regions;
+
+const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+function islandFor(code) {
+  const n = Number(code);
+  return n < 30 ? 'Sumatera' : n < 40 ? 'Jawa' : n < 60 ? 'Bali & Nusa Tenggara' : n < 70 ? 'Kalimantan' : n < 80 ? 'Sulawesi' : n < 90 ? 'Maluku' : 'Papua';
 }
-function renderDetail(){
- const f=geo.features.find(f=>f.properties.KODE_PROV===state.selected); if(!f)return;
- $('#province-name').textContent=f.properties.PROVINSI;
- $('#province-meta').textContent=`${islandFor(state.selected)} · Kode provinsi ${state.selected}`;
- $('#detail-year').textContent=state.year;
- $('#prediction-cards').innerHTML=Object.entries(CATEGORIES).map(([key,title])=>`<div class="prediction-row ${key===state.category?'active':''}"><span>${title}</span>${badge(level(state.selected,key))}</div>`).join('');
- const features=prediction(state.selected)?.explanations;
- $('#explanation-subtitle').textContent=`${dataset.is_demo?'Ilustrasi kontribusi fitur':'Kontribusi fitur'} · ${CATEGORIES[state.category].toLowerCase()}`;
- const valid=Array.isArray(features)?features.filter(f=>typeof f.feature==='string'&&Number.isFinite(f.contribution)):[];
- const max=Math.max(...valid.map(f=>Math.abs(f.contribution)),.01);
- $('#explanation-chart').innerHTML=valid.length?valid.slice(0,3).map(f=>`<div class="feature-row"><div class="feature-label"><span>${escapeHTML(f.feature)}</span><span class="feature-value">${f.contribution>0?'+':''}${f.contribution.toFixed(2)}</span></div><div class="feature-track"><div class="feature-fill ${f.contribution<0?'negative':''}" style="width:${Math.max(4,Math.abs(f.contribution)/max*100)}%"></div></div></div>`).join(''):'<div class="empty-explanation">Penjelasan model belum tersedia untuk provinsi dan kategori ini.</div>';
- $('#explanation-footnote').textContent=dataset.is_demo?'Angka ilustrasi untuk pratinjau XAI. Belum berasal dari model. Tanda +/− menunjukkan arah kontribusi.':(valid.length?'Kontribusi terhadap kelas yang ditampilkan. Tanda + meningkatkan dan − menurunkan keluaran model; bukan bukti sebab-akibat.':'Penjelasan dapat ditambahkan bersama hasil prediksi model.');
+const record = code => dataset.predictions.find(row => row.province_code === String(code) && row.year === state.year);
+const prediction = (code, category = state.category) => record(code)?.[category] ?? null;
+const level = (code, category = state.category) => prediction(code, category)?.level ?? 'unavailable';
+const mapLevel = (code, category = state.category) => record(code)?.boundary_status === 'unverified' ? 'unavailable' : level(code, category);
+let fullMapZoom = 2, fullMapBounds;
+function badge(value) {
+  const item = LEVELS[value] ?? LEVELS.unavailable;
+  return `<span class="risk-badge badge-${escapeHTML(value)}"><span class="risk-dot ${escapeHTML(value)}"></span>${item.label}</span>`;
 }
-function refreshMap(){if(!regions)return;regions.setStyle(style);layers.forEach((layer,code)=>{const f=geo.features.find(f=>f.properties.KODE_PROV===code);layer.setTooltipContent(tooltip(f));});layers.get(state.selected)?.bringToFront();}
-function renderSummary(){const matching=geo.features.filter(f=>state.island==='all'||islandFor(f.properties.KODE_PROV)===state.island);Object.keys(LEVELS).forEach(l=>{const el=$(`#${l}-count`);if(el)el.innerHTML=`${matching.filter(f=>level(f.properties.KODE_PROV)===l).length}<small> provinsi</small>`;});$$('[data-risk]').forEach(b=>{const active=b.dataset.risk===state.risk;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',String(active));});$('#clear-filters').hidden=!state.risk&&state.island==='all';$('#map-context').textContent=`${geo.features.filter(visible).length} provinsi · ${CATEGORIES[state.category]}`;}
-function filteredFeatures(){const query=state.query.toLocaleLowerCase('id');return geo.features.filter(f=>visible(f)&&f.properties.PROVINSI.toLocaleLowerCase('id').includes(query));}
-function renderTable(){const matches=filteredFeatures();$('#province-table').innerHTML=matches.map(f=>`<tr class="${state.selected===f.properties.KODE_PROV?'selected':''}"><td>${escapeHTML(f.properties.PROVINSI)}</td><td>${badge(level(f.properties.KODE_PROV,'sexual'))}</td><td>${badge(level(f.properties.KODE_PROV,'nonsexual'))}</td><td><button data-province="${f.properties.KODE_PROV}" aria-label="Lihat detail ${escapeHTML(f.properties.PROVINSI)}">Lihat →</button></td></tr>`).join('')||'<tr><td colspan="4">Tidak ada provinsi yang sesuai. Coba ubah pencarian atau filter.</td></tr>';$('#table-note').textContent=`${matches.length} provinsi ditampilkan · ${dataset.is_demo?'Data ilustrasi':'Hasil prediksi model'} ${state.year}`;$$('#province-table [data-province]').forEach(b=>b.addEventListener('click',()=>selectProvince(b.dataset.province)));}
-function update(){renderSummary();refreshMap();renderDetail();renderTable();}
-function renderSearch(){const box=$('#search-results');if(!state.query.trim()||state.view==='data'){box.hidden=true;return;}const matches=geo.features.filter(f=>f.properties.PROVINSI.toLocaleLowerCase('id').includes(state.query.toLocaleLowerCase('id')));box.innerHTML=matches.length?matches.map(f=>`<button data-province="${f.properties.KODE_PROV}">${escapeHTML(f.properties.PROVINSI)} <span style="color:#9ca99b;font-size:9px">· ${islandFor(f.properties.KODE_PROV)}</span></button>`).join(''):'<div class="search-empty">Provinsi tidak ditemukan.</div>';box.hidden=false;$$('#search-results button').forEach(b=>b.addEventListener('click',()=>{state.query='';$('#search').value='';box.hidden=true;state.risk=null;state.island='all';$('#island').value='all';selectProvince(b.dataset.province,{zoom:true});renderSummary();}));}
-function fitRegion(){if(!map||$('#map-stage').hidden)return;const subset=geo.features.filter(f=>state.island==='all'||islandFor(f.properties.KODE_PROV)===state.island);map.invalidateSize();map.fitBounds(L.geoJSON({type:'FeatureCollection',features:subset}).getBounds(),{paddingTopLeft:[28,45],paddingBottomRight:[28,55],maxZoom:7,animate:false});}
-function setView(view){state.view=view;$('#map-stage').hidden=view!=='map';$('#data-view').hidden=view!=='data';$('#breadcrumb-view').textContent=view==='map'?'Peta risiko':'Data provinsi';$$('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===view);if(b.dataset.view===view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});$('#search-results').hidden=true;if(view==='map')requestAnimationFrame(fitRegion);renderTable();}
-const dialogContent={
-method:`<h2>Memahami prediksi,<br>mengetahui batasnya.</h2><p>Setiap provinsi memiliki dua hasil terpisah: risiko kekerasan seksual dan nonseksual. Pilihan kategori mengubah warna peta; panel provinsi selalu menampilkan keduanya.</p><h3>Tiga tingkat risiko</h3><p>Hijau berarti rendah, kuning sedang, dan merah tinggi menurut definisi kelas model. Abu-abu berarti prediksi belum tersedia. Kelas ini menggambarkan hasil model di tingkat provinsi, bukan risiko individu.</p><h3>Penjelasan dengan XAI</h3><p>Kontribusi fitur menjelaskan pengaruh suatu indikator pada keluaran model untuk kelas yang ditampilkan. Nilai positif meningkatkan keluaran tersebut, nilai negatif menurunkannya. Kontribusi bukan hubungan sebab-akibat.</p><h3>Status model dan data</h3><p id="method-status"></p><p>Dokumentasi model yang diterbitkan perlu memuat definisi target, batas kelas, periode data masukan, versi model, evaluasi per kelas, dan metode penjelasan. Kelengkapan pelaporan kasus juga perlu dipertimbangkan saat membaca hasil.</p>`,
-about:`<h2>Data untuk<br>mendukung pencegahan.</h2><p>Ruang Aman adalah dasbor penelitian untuk menjelajahi prediksi risiko kekerasan terhadap perempuan di provinsi Indonesia, dengan penjelasan model yang mudah dibaca.</p><h3>Pratinjau yang transparan</h3><p>Versi desain ini menggunakan kelas dan kontribusi fitur sintetis. Tidak ada inferensi model yang dijalankan di situs. Ganti berkas prediksi untuk menghubungkan model penelitian.</p><h3>Sumber batas wilayah</h3><p>Geometri 38 provinsi: <a href="https://github.com/mashadinoor/Indonesia-Geojson-2026" target="_blank" rel="noopener noreferrer">Indonesia GeoJSON 2026</a>, turunan data BIG menurut dokumentasi repositori. Data komunitas ini digunakan untuk pratinjau; versi batas resmi perlu diperiksa untuk publikasi penelitian. Kode dan versi wilayah harus sesuai dengan data model.</p><p>Lisensi: <a href="assets/GEOJSON-LICENSE.txt" target="_blank" rel="noopener noreferrer">MIT / kredit pengelola data</a>. Peta menggunakan <a href="https://leafletjs.com" target="_blank" rel="noopener noreferrer">Leaflet</a>.</p>`};
-function openDialog(key){$('#dialog-content').innerHTML=dialogContent[key];if(key==='method')$('#method-status').textContent=dataset.is_demo?'Data ilustrasi. Model, batas kelas, periode masukan, dan evaluasi belum terhubung.':`Versi model: ${dataset.model_version??'Belum tersedia'}. Periode masukan: ${dataset.input_period??'Belum tersedia'}. ${dataset.methodology??''}`;$('#info-dialog').showModal();}
-function exportCSV(){const quote=v=>'"'+String(v??'').replace(/"/g,'""')+'"';const rows=[['province_code','province_name','year','sexual_level','nonsexual_level','is_demo','model_version'],...filteredFeatures().map(f=>[f.properties.KODE_PROV,f.properties.PROVINSI,state.year,level(f.properties.KODE_PROV,'sexual'),level(f.properties.KODE_PROV,'nonsexual'),dataset.is_demo,dataset.model_version??''])];const url=URL.createObjectURL(new Blob(['\uFEFF'+rows.map(r=>r.map(quote).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`ruang-aman-${dataset.is_demo?'ilustrasi-':''}${state.year}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);$('#live-status').textContent='Data provinsi diunduh sebagai CSV.';}
-function validate(data,g){if(!Array.isArray(g.features)||!g.features.length)throw new Error('Batas provinsi tidak valid.');if(typeof data.is_demo!=='boolean'||!Array.isArray(data.predictions))throw new Error('Format predictions.json tidak valid.');const seen=new Set();for(const r of data.predictions){if(!Number.isInteger(r.year)||typeof r.province_code!=='string')throw new Error('Kode provinsi harus string dan tahun harus angka.');const key=r.province_code+':'+r.year;if(seen.has(key))throw new Error('Ada prediksi ganda untuk provinsi dan tahun.');seen.add(key);for(const c of Object.keys(CATEGORIES)){if(r[c]!=null&&!Object.hasOwn(LEVELS,r[c].level))throw new Error('Kelas risiko tidak dikenal.');}if(!g.features.some(f=>f.properties.KODE_PROV===r.province_code))throw new Error('Kode prediksi tidak cocok dengan batas provinsi.');}}
-async function init(){try{
- const responses=await Promise.all([fetch('data/provinces.geojson'),fetch('data/predictions.json')]);if(responses.some(r=>!r.ok))throw new Error('Berkas data gagal dimuat.');[geo,dataset]=await Promise.all(responses.map(r=>r.json()));validate(dataset,geo);
- const years=[...new Set(dataset.predictions.map(p=>p.year))].sort((a,b)=>b-a);if(!years.length)throw new Error('Belum ada tahun prediksi tersedia.');state.year=years[0];$('#year').innerHTML=years.map(y=>`<option value="${y}">${y}</option>`).join('');$('.coverage-tag').textContent=state.year;$('#coverage-count').innerHTML=`${geo.features.length}<span> provinsi</span>`;
- if(!dataset.is_demo){$('.demo-pill').innerHTML='<span></span>Prediksi model';$('#data-notice').textContent=`Prediksi model ${state.year}. Versi ${dataset.model_version??'belum dicantumkan'}. Data masukan: ${dataset.input_period??'belum dicantumkan'}. Hasil merupakan prediksi di tingkat provinsi.`;$('.sidebar-foot').innerHTML='<span class="status-dot"></span>Dasbor penelitian<small>EXPLAINABLE AI · INDONESIA</small>';}
- map=L.map('map',{zoomControl:false,scrollWheelZoom:false,minZoom:3,maxZoom:10,zoomSnap:.1,attributionControl:true});map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');map.attributionControl.addAttribution('<a href="https://github.com/mashadinoor/Indonesia-Geojson-2026">Batas provinsi · GeoJSON 2026</a>');
- regions=L.geoJSON(geo,{style,onEachFeature:(feature,layer)=>{const code=feature.properties.KODE_PROV;layers.set(code,layer);layer.bindTooltip(tooltip(feature),{sticky:true,direction:'top',offset:[0,-14]});layer.on({mouseover:()=>{layer.setStyle({weight:2,color:'#638b6f',fillOpacity:1});layer.bringToFront();},mouseout:()=>{layer.setStyle(style(feature));layers.get(state.selected)?.bringToFront();},click:()=>{selectProvince(code);layer.closeTooltip();},add:()=>{const el=layer.getElement();el.setAttribute('role','button');el.setAttribute('tabindex','0');el.setAttribute('aria-label',`Lihat ${feature.properties.PROVINSI}`);el.dataset.province=code;el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selectProvince(code);}});}});}}).addTo(map);
- labels=L.layerGroup();[[[-1,101],'Sumatera'],[[-7.5,111],'Jawa'],[[.9,114.7],'Kalimantan'],[[-2.3,121],'Sulawesi'],[[-3.3,129],'Maluku'],[[-5.8,136.5],'Papua'],[[-10,119],'Nusa Tenggara']].forEach(([pos,label])=>L.marker(pos,{interactive:false,keyboard:false,icon:L.divIcon({className:'island-label',html:label,iconSize:[110,10],iconAnchor:[55,5]})}).addTo(labels));labels.addTo(map);
- const reset=()=>{if(!$('#map-stage').hidden){map.invalidateSize();map.fitBounds(regions.getBounds(),{paddingTopLeft:[28,45],paddingBottomRight:[28,55],animate:false});}};reset();new ResizeObserver(()=>{if(!$('#map-stage').hidden)fitRegion();}).observe($('#map'));
- $('#zoom-in').addEventListener('click',()=>map.zoomIn());$('#zoom-out').addEventListener('click',()=>map.zoomOut());$('#reset-map').addEventListener('click',reset);
- $$('[data-category]').forEach(b=>b.addEventListener('click',()=>{state.category=b.dataset.category;$$('[data-category]').forEach(t=>{t.classList.toggle('selected',t===b);t.setAttribute('aria-pressed',String(t===b));});update();}));
- $$('[data-risk]').forEach(b=>b.addEventListener('click',()=>{state.risk=state.risk===b.dataset.risk?null:b.dataset.risk;update();}));
- $('#island').addEventListener('change',e=>{state.island=e.target.value;update();const subset=geo.features.filter(f=>state.island==='all'||islandFor(f.properties.KODE_PROV)===state.island);if(subset.length)map.fitBounds(L.geoJSON({type:'FeatureCollection',features:subset}).getBounds(),{padding:[35,55],maxZoom:7});});
- $('#year').addEventListener('change',e=>{state.year=Number(e.target.value);$('.coverage-tag').textContent=state.year;update();});
- $('#clear-filters').addEventListener('click',()=>{state.risk=null;state.island='all';$('#island').value='all';update();reset();});
- $('#search').addEventListener('input',e=>{state.query=e.target.value;renderSearch();renderTable();});$('#search').addEventListener('keydown',e=>{if(e.key==='Escape')$('#search-results').hidden=true;if(e.key==='ArrowDown'){$('#search-results button')?.focus();}if(e.key==='Enter'&&state.view==='map'){$('#search-results button')?.click();}});$('#search-results').addEventListener('keydown',e=>{const buttons=$$('#search-results button'),i=buttons.indexOf(document.activeElement);if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(i+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}if(e.key==='Escape'){$('#search-results').hidden=true;$('#search').focus();}});document.addEventListener('click',e=>{if(!e.target.closest('.search-wrap'))$('#search-results').hidden=true;});
- $$('[data-view]').forEach(b=>b.addEventListener('click',()=>setView(b.dataset.view)));$$('[data-dialog]').forEach(b=>b.addEventListener('click',()=>openDialog(b.dataset.dialog)));$('#close-dialog').addEventListener('click',()=>$('#info-dialog').close());$('#dialog-done').addEventListener('click',()=>$('#info-dialog').close());$('#download').addEventListener('click',exportCSV);update();
- }catch(error){$('#map-error').hidden=false;$('#map-error').textContent=`Data belum dapat dimuat. ${error.message} Jalankan situs melalui server HTTP dan periksa berkas data.`;$('#live-status').textContent='Data gagal dimuat.';console.error(error);}}
+function tooltip(feature) {
+  const code = feature.properties.KODE_PROV;
+  return `<div class="tip-heading">${escapeHTML(feature.properties.PROVINSI)}</div><div class="tip-label">Prediksi ${state.year}${record(code)?.is_training ? ' · Data pelatihan' : ''}</div>${Object.entries(CATEGORIES).map(([key, title]) => `<div class="tip-row"><span>${title.replace('Kekerasan ', '')}</span>${badge(level(code, key))}</div>`).join('')}${record(code)?.boundary_status === 'unverified' ? '<p class="tip-label">Batas wilayah sumber belum dikonfirmasi.</p>' : ''}`;
+}
+function visible(feature) {
+  const code = feature.properties.KODE_PROV;
+  return (state.island === 'all' || islandFor(code) === state.island) && (!state.risk || mapLevel(code) === state.risk);
+}
+function style(feature) {
+  const code = feature.properties.KODE_PROV, shown = visible(feature), selected = code === state.selected;
+  return { fillColor: shown ? LEVELS[mapLevel(code)].color : '#e0e8e5', fillOpacity: shown ? .97 : .36, color: selected ? '#164b40' : '#f6faf7', weight: selected ? 2.5 : 1.2, opacity: shown ? 1 : .6 };
+}
+function selectProvince(code, { zoom = false } = {}) {
+  state.selected = String(code);
+  renderDetail(); refreshMap();
+  if (zoom && map && layers.has(state.selected)) {
+    map.fitBounds(layers.get(state.selected).getBounds(), { padding: [75, 75], maxZoom: 7, animate: !matchMedia('(prefers-reduced-motion: reduce)').matches });
+  }
+  $('#live-status').textContent = `${$('#province-name').textContent} dipilih. ${CATEGORIES[state.category]}: ${LEVELS[level(code)].label}.`;
+}
+function renderIndicator(item, maxContribution) {
+  const raw = formatIndicator(item);
+  const hasContribution = Number.isFinite(item.contribution);
+  const direction = item.contribution > 0 ? 'increase' : item.contribution < 0 ? 'decrease' : 'neutral';
+  const effect = state.explanationMethod === 'lime' ? 'Bobot lokal' : item.contribution > 0 ? 'Menaikkan' : item.contribution < 0 ? 'Menurunkan' : 'Netral';
+  const width = maxContribution > 0 ? Math.min(100, Math.abs(item.contribution) / maxContribution * 100) : 0;
+  return `<article class="indicator-card ${direction}">
+    <h4 title="${escapeHTML(item.description ?? item.feature)}">${escapeHTML(item.feature)}</h4>
+    <div class="indicator-reading"><p class="indicator-value ${raw.available ? '' : 'missing-value'}"><strong>${escapeHTML(raw.value)}</strong>${raw.unit ? `<span>${escapeHTML(raw.unit)}</span>` : ''}</p>
+    ${hasContribution ? `<div class="contribution-line"><span>${effect}</span><strong>${escapeHTML(formatContribution(item.contribution))}</strong></div>` : ''}</div>
+    ${item.qualifier ? `<p class="indicator-qualifier">${escapeHTML(item.qualifier)}</p>` : ''}
+    <p class="indicator-peer">${escapeHTML(compareWithPeers(dataset.predictions, state.year, state.selected, item))}</p>
+    ${hasContribution ? `<div class="contribution-track" role="img" aria-label="${state.explanationMethod.toUpperCase()}: ${escapeHTML(formatContribution(item.contribution))}. Panjang batang relatif terhadap kontribusi terbesar."><span style="width:${width.toFixed(2)}%"></span></div>` : ''}
+  </article>`;
+}
+function renderComparison(output) {
+  const reference = predictionReference(dataset.predictions, state.year, state.category);
+  if (!Number.isFinite(output?.predicted_value) || reference.mean === null) return '';
+  const difference = output.predicted_value - reference.mean;
+  const format = value => escapeHTML(formatIndicator({ value }).value);
+  return `<div class="comparison-card"><div class="comparison-values"><div><span>Rata-rata ${reference.count} provinsi</span><strong>${format(reference.mean)}</strong></div><span class="comparison-arrow" aria-hidden="true">→</span><div><span>Perkiraan provinsi ini</span><strong>${format(output.predicted_value)}</strong></div></div><p class="comparison-unit">${escapeHTML(dataset.target_unit ?? 'Nilai prediksi')}</p>${Number.isFinite(output.observed_value) ? `<p class="observed-value">Angka tercatat: <strong>${format(output.observed_value)}</strong></p>` : ''}</div><p class="comparison-description">${Math.abs(difference) < .005 ? 'Perkiraan provinsi ini hampir sama dengan rata-rata.' : `Perkiraan provinsi ini <strong>${format(Math.abs(difference))} lebih ${difference > 0 ? 'tinggi' : 'rendah'}</strong> dari rata-rata.`} Rata-rata memakai provinsi yang memiliki data pada ${state.year}.</p>`;
+}
+function renderDetail() {
+  const feature = geo.features.find(f => f.properties.KODE_PROV === state.selected);
+  if (!feature) return;
+  $('#province-name').textContent = feature.properties.PROVINSI;
+  const current = record(state.selected);
+  $('#province-meta').textContent = islandFor(state.selected) + (current?.is_training ? ' · Data pelatihan' : '') + (current?.boundary_status === 'unverified' ? ' · Batas wilayah sumber belum dikonfirmasi' : '');
+  $('#detail-year').textContent = state.year;
+  $('#prediction-cards').innerHTML = Object.entries(CATEGORIES).map(([key, title]) => `<div class="prediction-row ${key === state.category ? 'active' : ''}"><span>${title}</span>${badge(level(state.selected, key))}</div>`).join('');
+  const output = prediction(state.selected);
+  const measurements = (current?.indicators ?? []).filter(item => !dataset.model_feature_columns || dataset.model_feature_columns.includes(item.column));
+  const hasShap = Boolean(output?.explanations?.length), hasLime = Boolean(output?.lime_explanations?.length);
+  const methodSelect = $('#explanation-method');
+  methodSelect.hidden = !hasShap && !hasLime;
+  methodSelect.querySelector('[value="shap"]').disabled = !hasShap;
+  methodSelect.querySelector('[value="lime"]').disabled = !hasLime;
+  if (state.explanationMethod === 'lime' && !hasLime) state.explanationMethod = 'shap';
+  if (state.explanationMethod === 'shap' && !hasShap && hasLime) state.explanationMethod = 'lime';
+  methodSelect.value = state.explanationMethod;
+  const explanations = state.explanationMethod === 'lime' ? output?.lime_explanations : output?.explanations;
+  const items = resolvedIndicators(explanations, measurements);
+  const shown = items.length ? items : measurements.slice(0, 3);
+  const maxContribution = Math.max(0, ...(explanations ?? []).map(item => Math.abs(item.contribution)).filter(Number.isFinite));
+  $('#indicator-heading').textContent = 'Di balik prediksi';
+  $('#explanation-subtitle').textContent = items.length ? `${shown.length} faktor terbesar · ${CATEGORIES[state.category].toLowerCase()}${state.explanationMethod === 'lime' && Number.isFinite(output?.lime_fidelity) ? ` · R² lokal ${formatIndicator({value:output.lime_fidelity}).value}` : ''}` : `Data ${state.year}`;
+  $('#prediction-comparison').innerHTML = renderComparison(output);
+  $('#explanation-chart').classList.toggle('unranked', !items.length);
+  $('#explanation-chart').innerHTML = shown.length
+    ? shown.map(item => renderIndicator(item, maxContribution)).join('')
+    : '<p class="empty-explanation">Data indikator belum tersedia untuk provinsi dan tahun ini.</p>';
+  const keys = new Set(shown.map(item => item.column ?? item.feature));
+  const other = measurements.filter(item => !keys.has(item.column ?? item.feature)).map(item => ({ ...item, ...explanations?.find(explanation => explanation.column === item.column) }));
+  $('#other-indicators').innerHTML = `${measurements.length && !items.length ? '<p class="xai-status">Kontribusi XAI belum tersedia untuk prediksi ini.</p>' : ''}${other.length ? `<details class="all-indicators"><summary>${other.length} faktor lainnya</summary>${other.map(item => renderIndicator(item, maxContribution)).join('')}</details>` : ''}`;
+  $('#explanation-note').textContent = !items.length ? '' : state.explanationMethod === 'lime'
+    ? 'LIME memperkirakan hubungan di sekitar kondisi provinsi ini. Bobot +/− adalah koefisien lokal per input yang distandardisasi, bukan tambahan korban terhadap rata-rata. R² lokal menunjukkan kecocokan pendekatan; nilai rendah berarti penjelasan kurang mewakili model.'
+    : 'Nilai + menambah dan − mengurangi perkiraan korban per 100.000 penduduk terhadap rata-rata. Seluruh faktor bersama-sama menjelaskan selisihnya; tiga terbesar ditampilkan di atas. Ini menunjukkan kaitan dalam model, bukan sebab akibat.';
+  $('#feature-definitions').innerHTML = measurements.length ? `<details class="feature-definitions"><summary>Arti indikator</summary><dl>${measurements.map(item => `<dt>${escapeHTML(item.feature)}</dt><dd>${escapeHTML(item.description ?? item.feature)}</dd>`).join('')}</dl></details>` : '';
+}
+function refreshMap() {
+  if (!regions) return;
+  regions.setStyle(style);
+  layers.forEach((layer, code) => {
+    layer.setTooltipContent(tooltip(geo.features.find(f => f.properties.KODE_PROV === code)));
+    const element = layer.getElement();
+    element.setAttribute('aria-label', `Lihat ${geo.features.find(f => f.properties.KODE_PROV === code).properties.PROVINSI}, risiko ${LEVELS[level(code)].label.toLowerCase()}`);
+    element.setAttribute('aria-pressed', String(code === state.selected));
+  });
+  layers.get(state.selected)?.bringToFront();
+}
+function renderSummary() {
+  const matching = geo.features.filter(f => state.island === 'all' || islandFor(f.properties.KODE_PROV) === state.island);
+  for (const key of Object.keys(LEVELS)) $(`#${key}-count`).textContent = matching.filter(f => mapLevel(f.properties.KODE_PROV) === key).length;
+  $$('[data-risk]').forEach(button => {
+    const active = button.dataset.risk === state.risk;
+    button.classList.toggle('selected', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+  $('#clear-filters').hidden = !state.risk && state.island === 'all';
+  $('#map-category').textContent = CATEGORIES[state.category];
+  const displayed = geo.features.filter(visible);
+  const mapped = displayed.filter(f => mapLevel(f.properties.KODE_PROV) !== 'unavailable');
+  $('#map-context').textContent = `${mapped.length} dari ${displayed.length} provinsi terpetakan`;
+}
+function filteredFeatures() {
+  const query = state.query.trim().toLocaleLowerCase('id');
+  return geo.features.filter(f => visible(f) && f.properties.PROVINSI.toLocaleLowerCase('id').includes(query));
+}
+function update() { renderSummary(); refreshMap(); renderDetail(); }
+function renderSearch() {
+  const box = $('#search-results');
+  if (!state.query.trim()) { box.hidden = true; return; }
+  const matches = geo.features.filter(f => f.properties.PROVINSI.toLocaleLowerCase('id').includes(state.query.trim().toLocaleLowerCase('id')));
+  box.innerHTML = matches.length ? matches.map(f => `<button data-province="${f.properties.KODE_PROV}"><span>${escapeHTML(f.properties.PROVINSI)}</span><small>${islandFor(f.properties.KODE_PROV)}</small></button>`).join('') : '<p class="search-empty">Provinsi tidak ditemukan.</p>';
+  box.hidden = false;
+  $$('#search-results button').forEach(button => button.addEventListener('click', () => {
+    state.query = ''; $('#search').value = ''; box.hidden = true;
+    state.risk = null; state.island = 'all'; $('#island').value = 'all';
+    selectProvince(button.dataset.province, { zoom: true }); renderSummary();
+  }));
+}
+function fitRegion() {
+  if (!map || $('#map-stage').hidden) return;
+  const subset = geo.features.filter(f => state.island === 'all' || islandFor(f.properties.KODE_PROV) === state.island);
+  map.invalidateSize();
+  map.fitBounds(L.geoJSON({ type: 'FeatureCollection', features: subset }).getBounds(), { paddingTopLeft: [20, 80], paddingBottomRight: [20, 48], maxZoom: Math.min(fullMapZoom + 5, 12), animate: false });
+}
+function updateZoomState() {
+  const element = $('#map');
+  element.dataset.zoom = map.getZoom().toFixed(3);
+  element.dataset.minZoom = map.getMinZoom().toFixed(3);
+  element.dataset.maxZoom = map.getMaxZoom().toFixed(3);
+  element.dataset.wheelZoom = String(map.scrollWheelZoom.enabled());
+  element.dataset.touchZoom = String(map.touchZoom.enabled());
+  $('#zoom-out').disabled = map.getZoom() <= map.getMinZoom() + .001;
+  $('#zoom-in').disabled = map.getZoom() >= map.getMaxZoom() - .001;
+}
+function updateZoomLimits() {
+  if (!map || !fullMapBounds) return;
+  map.invalidateSize();
+  const size = map.getSize();
+  if (!size.x || !size.y) return;
+  // Compute the outer limit from the whole country, never from an island filter.
+  // Leaflet clamps getBoundsZoom to existing limits; release the old desktop floor first.
+  map.setMinZoom(0);
+  map.setMaxZoom(12);
+  fullMapZoom = map.getBoundsZoom(fullMapBounds, false, L.point(40, 128));
+  map.setMinZoom(fullMapZoom);
+  map.setMaxZoom(Math.min(fullMapZoom + 5, 12));
+  map.setMaxBounds(fullMapBounds.pad(.18));
+  fitRegion();
+  updateZoomState();
+}
+function exportCSV() {
+  const quote = value => '"' + String(value ?? '').replace(/"/g, '""') + '"';
+  const rows = [['province_code', 'province_name', 'prediction_year', 'category', 'risk_level', 'predicted_value', 'observed_value', 'indicator', 'indicator_column', 'indicator_value', 'unit', 'indicator_year', 'source', 'shap_contribution', 'lime_weight', 'explanation_target', 'is_training', 'boundary_status', 'model_version']];
+  for (const feature of filteredFeatures()) {
+    for (const category of Object.keys(CATEGORIES)) {
+      const output = prediction(feature.properties.KODE_PROV, category);
+      const current = record(feature.properties.KODE_PROV);
+      const indicators = (current?.indicators ?? []).filter(item => !dataset.model_feature_columns || dataset.model_feature_columns.includes(item.column));
+      for (const indicator of indicators.length ? indicators : [null]) {
+        const match = item => (indicator?.column && item.column === indicator.column) || item.feature === indicator?.feature;
+        const shapValue = output?.explanations?.find(match)?.contribution;
+        const limeValue = output?.lime_explanations?.find(match)?.contribution;
+        rows.push([feature.properties.KODE_PROV, feature.properties.PROVINSI, state.year, category, level(feature.properties.KODE_PROV, category), output?.predicted_value, output?.observed_value, indicator?.feature, indicator?.column, typeof indicator?.value === 'number' && Number.isFinite(indicator.value) ? indicator.value : '', indicator?.unit, indicator?.data_year, indicator?.source, shapValue, limeValue, output?.explanation_target ?? '', current?.is_training, current?.boundary_status ?? (current ? 'matched' : 'missing'), dataset.model_version]);
+      }
+    }
+  }
+  const url = URL.createObjectURL(new Blob(['\uFEFF' + rows.map(row => row.map(quote).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a'); link.href = url; link.download = `peta-risiko-${dataset.is_demo ? 'ilustrasi-' : ''}${state.year}.csv`; link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $('#live-status').textContent = 'Data provinsi dan indikator diunduh sebagai CSV.';
+}
+function validate(data, geometry) {
+  if (!Array.isArray(geometry.features) || !geometry.features.length) throw new Error('Batas provinsi tidak valid.');
+  if (typeof data.is_demo !== 'boolean' || !Array.isArray(data.predictions)) throw new Error('Format predictions.json tidak valid.');
+  const seen = new Set();
+  for (const row of data.predictions) {
+    if (!Number.isInteger(row.year) || typeof row.province_code !== 'string') throw new Error('Kode provinsi harus string dan tahun harus angka.');
+    const key = row.province_code + ':' + row.year;
+    if (seen.has(key)) throw new Error('Ada prediksi ganda untuk provinsi dan tahun.');
+    seen.add(key);
+    for (const category of Object.keys(CATEGORIES)) {
+      const output = row[category];
+      if (output != null && !Object.hasOwn(LEVELS, output.level)) throw new Error('Kelas risiko tidak dikenal.');
+      if (output?.explanation_target != null && !['risk_score', 'class_output'].includes(output.explanation_target)) throw new Error('Target penjelasan XAI tidak dikenal.');
+    }
+    if (!geometry.features.some(f => f.properties.KODE_PROV === row.province_code)) throw new Error('Kode prediksi tidak cocok dengan batas provinsi.');
+  }
+  if (data.explanation_target != null && !['risk_score', 'class_output'].includes(data.explanation_target)) throw new Error('Target penjelasan XAI tidak dikenal.');
+}
+async function init() {
+  try {
+    const responses = await Promise.all([fetch('data/provinces.geojson'), fetch('data/predictions.json')]);
+    if (responses.some(response => !response.ok)) throw new Error('Berkas data gagal dimuat.');
+    [geo, dataset] = await Promise.all(responses.map(response => response.json()));
+    validate(dataset, geo);
+    const years = [...new Set(dataset.predictions.map(row => row.year))].sort((a, b) => b - a);
+    if (!years.length) throw new Error('Belum ada tahun prediksi tersedia.');
+    state.year = years[0];
+    $('#year').innerHTML = years.map(year => `<option value="${year}">${year}</option>`).join('');
+    $('#coverage-label').textContent = `Indonesia · ${geo.features.length} provinsi`;
+    if (!geo.features.some(f => f.properties.KODE_PROV === state.selected)) state.selected = geo.features[0].properties.KODE_PROV;
+    map = L.map('map', { zoomControl: false, scrollWheelZoom: true, touchZoom: true, dragging: true, bounceAtZoomLimits: false, maxBoundsViscosity: 1, wheelPxPerZoomLevel: 120, minZoom: 0, maxZoom: 12, zoomSnap: .1, zoomDelta: .5, attributionControl: true });
+    map.attributionControl.setPrefix('<a href="https://leafletjs.com">Leaflet</a>');
+    map.attributionControl.addAttribution('<a href="https://github.com/mashadinoor/Indonesia-Geojson-2026">Batas provinsi</a>');
+    regions = L.geoJSON(geo, { style, onEachFeature: (feature, layer) => {
+      const code = feature.properties.KODE_PROV;
+      layers.set(code, layer);
+      layer.bindTooltip(tooltip(feature), { sticky: true, direction: 'top', offset: [0, -14] });
+      layer.on({
+        mouseover: () => { layers.forEach(other => { if (other !== layer) other.closeTooltip(); }); layer.setStyle({ weight: 2.5, color: '#164b40', fillOpacity: 1 }); layer.bringToFront(); },
+        mouseout: () => { layer.setStyle(style(feature)); layers.get(state.selected)?.bringToFront(); },
+        click: () => { selectProvince(code); layer.closeTooltip(); },
+        add: () => {
+          const element = layer.getElement(); element.setAttribute('role', 'button'); element.setAttribute('tabindex', '0'); element.dataset.province = code;
+          element.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); selectProvince(code); } });
+        },
+      });
+    } }).addTo(map);
+    const islandLabels = L.layerGroup().addTo(map);
+    [[[-1, 100.5], 'Sumatera'], [[-8.9, 110], 'Jawa'], [[1.3, 114], 'Kalimantan'], [[-4, 121], 'Sulawesi'], [[-4.3, 128.5], 'Maluku'], [[-6.7, 137], 'Papua'], [[-10.6, 120], 'Nusa Tenggara']].forEach(([position, label]) => {
+      L.marker(position, { interactive: false, keyboard: false, icon: L.divIcon({ className: 'island-label', html: label, iconSize: [140, 16], iconAnchor: [70, 8] }) }).addTo(islandLabels);
+    });
+    fullMapBounds = regions.getBounds();
+    updateZoomLimits();
+    map.on('zoomstart dragstart resize', () => layers.forEach(layer => layer.closeTooltip()));
+    map.on('zoomend', () => {
+      if (map.getZoom() <= map.getMinZoom() + .001) map.fitBounds(fullMapBounds, { paddingTopLeft: [20, 80], paddingBottomRight: [20, 48], animate: false });
+      updateZoomState();
+    });
+    new ResizeObserver(updateZoomLimits).observe($('#map'));
+    $('#zoom-in').addEventListener('click', () => map.zoomIn());
+    $('#zoom-out').addEventListener('click', () => map.zoomOut());
+    $('#reset-map').addEventListener('click', () => { state.island = 'all'; $('#island').value = 'all'; update(); fitRegion(); });
+    $$('[data-category]').forEach(button => button.addEventListener('click', () => {
+      state.category = button.dataset.category;
+      $$('[data-category]').forEach(item => { item.classList.toggle('selected', item === button); item.setAttribute('aria-pressed', String(item === button)); });
+      update();
+    }));
+    $$('[data-risk]').forEach(button => button.addEventListener('click', () => { state.risk = state.risk === button.dataset.risk ? null : button.dataset.risk; update(); }));
+    $('#island').addEventListener('change', event => { state.island = event.target.value; update(); fitRegion(); });
+    $('#year').addEventListener('change', event => { state.year = Number(event.target.value); update(); });
+    $('#explanation-method').addEventListener('change', event => { state.explanationMethod = event.target.value; renderDetail(); });
+    $('#clear-filters').addEventListener('click', () => { state.risk = null; state.island = 'all'; $('#island').value = 'all'; update(); fitRegion(); });
+    $('#search').addEventListener('input', event => { state.query = event.target.value; renderSearch(); });
+    $('#search').addEventListener('keydown', event => {
+      if (event.key === 'Escape') $('#search-results').hidden = true;
+      if (event.key === 'ArrowDown') { event.preventDefault(); $('#search-results button')?.focus(); }
+      if (event.key === 'Enter') $('#search-results button')?.click();
+    });
+    $('#search-results').addEventListener('keydown', event => {
+      const buttons = $$('#search-results button'), index = buttons.indexOf(document.activeElement);
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); buttons[(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length]?.focus(); }
+      if (event.key === 'Escape') { $('#search-results').hidden = true; $('#search').focus(); }
+    });
+    document.addEventListener('click', event => { if (!event.target.closest('.search-wrap')) $('#search-results').hidden = true; });
+    $('#download').addEventListener('click', exportCSV);
+    update();
+  } catch (error) {
+    $('#map-error').hidden = false;
+    $('#map-error').textContent = `Data belum dapat dimuat. ${error.message} Periksa berkas data dan jalankan situs melalui server HTTP.`;
+    $('#live-status').textContent = 'Data gagal dimuat.';
+    console.error(error);
+  }
+}
 init();
