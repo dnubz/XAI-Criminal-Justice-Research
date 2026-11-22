@@ -7,7 +7,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const web = resolve(root, 'apps/web/dist');
 process.env.PUBLISHED_DATA_DIR ??= resolve(root, 'apps/api/data/published');
 const handler = createRequire(import.meta.url)(resolve(root, 'apps/api/api/index.js'));
-const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.geojson': 'application/geo+json', '.txt': 'text/plain; charset=utf-8' };
+const mime = { '.png': 'image/png', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.geojson': 'application/geo+json', '.txt': 'text/plain; charset=utf-8' };
 const server = createServer(async (req, res) => {
     try {
         const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);

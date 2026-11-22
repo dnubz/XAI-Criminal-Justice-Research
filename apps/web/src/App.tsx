@@ -123,9 +123,9 @@ export default function App() {
     const remaining = (detail?.indicators ?? []).filter(item => !topFactors.some(top => top.column === item.column)).map(item => ({ ...item, contribution: explanationItems.find(x => x.column === item.column)?.contribution ?? null }));
     return <div className="app-shell">
     <header className="topbar">
-      <a className="brand" href="#main" aria-label="Peta risiko kekerasan, ke halaman utama">
-        <span className="brand-mark" aria-hidden="true"><Activity size={19} strokeWidth={2.6}/></span>
-        <span><strong>Peta risiko kekerasan</strong><small>Indonesia · 38 provinsi</small></span>
+      <a className="brand" href="#main" aria-label="RuangAman, ke halaman utama">
+        <img className="brand-logo" src="/brand/ruangaman-mark.png" alt="" width="64" height="64" />
+        <span><strong>RuangAman</strong><small>Mengurai faktor di balik angka kekerasan</small></span>
       </a>
       <button className="download-button" onClick={downloadCsv} disabled={year == null || bootLoading}>
         <Download size={17} aria-hidden="true"/><span>Unduh data</span>
