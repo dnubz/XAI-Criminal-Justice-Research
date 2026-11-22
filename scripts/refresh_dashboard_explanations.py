@@ -1,4 +1,3 @@
-"""Re-reference genuine SHAP values to the available same-year province mean. No model refit."""
 import hashlib
 import json
 import os
@@ -37,7 +36,7 @@ def refresh(data, report, bundle):
             estimator = bundle["models"][target_index]
             predict = lambda Z: np.maximum(0, estimator.predict(np.asarray(Z, dtype=float)))
             predictions = predict(X)
-            # Reference uses feature rows, never held-out outcomes. The predictor is frozen.
+
             explainer = shap.Explainer(predict, X, algorithm="exact", feature_names=features)
             result = explainer(X, max_evals=2 ** len(features), batch_size=512, silent=True)
             expected = float(np.mean(predictions))
@@ -85,8 +84,6 @@ def main():
     save(path, data)
     save(ROOT / "model-artifacts/benchmark.json", report)
     save(ROOT / "dist/data/model-report.json", report)
-    from train_original_model import write_summary
-    write_summary(report)
     if hashlib.sha256(model_path.read_bytes()).hexdigest() != before:
         raise ValueError("Model artifact unexpectedly changed")
     print("Labels and SHAP references refreshed; model artifact and predictions unchanged.", flush=True)

@@ -1,40 +1,168 @@
 {
-  "source": "User-provided screenshots of Feature in dataset",
-  "reference_url": "https://app.notion.com/p/Feature-in-dataset-33e96beac3198087a42ec114d4972729",
+  "metadata_version": "1.0.0",
+  "definitions_source": "dist/data/feature-labels.json where available; existing dashboard indicator labels for the remaining columns; undefined units are kept null",
   "features": {
     "PDRB_per_kapita_HK": {
       "label": "PDRB per kapita (harga konstan)",
       "description": "PDRB per kapita atas harga konstan.",
-      "unit": null
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 2
     },
     "PDRB_per_kapita": {
       "label": "PDRB per kapita (harga berlaku)",
       "description": "PDRB per kapita atas harga berlaku.",
-      "unit": null
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 2
     },
     "PPKMLA": {
       "label": "Kelahiran pertama sebelum usia 20 tahun",
       "description": "Persentase perempuan pernah kawin yang melahirkan anak pertama di usia kurang dari 20 tahun.",
-      "qualifier": "Pada perempuan yang pernah kawin",
-      "unit": "%"
+      "unit": "%",
+      "display_multiplier": 1,
+      "precision": 2,
+      "qualifier": "Pada perempuan yang pernah kawin"
     },
     "IPG": {
       "label": "Indeks Pembangunan Gender",
       "description": "Indeks Pembangunan Gender.",
-      "unit": "poin"
+      "unit": "poin",
+      "display_multiplier": 1,
+      "precision": 2
     },
-    "JPM": { "label": "Jumlah penduduk miskin", "description": "Jumlah penduduk miskin dalam ribuan jiwa.", "unit": "ribu jiwa" },
-    "jumlah_PPM": { "label": "Penduduk miskin per semester", "description": "Jumlah penduduk miskin pada semester 1 atau semester 2." },
-    "PPDPSK_L": { "label": "Laki-laki di bawah garis kemiskinan", "description": "Persentase penduduk laki-laki dengan pendapatan di bawah garis kemiskinan.", "unit": "%" },
-    "PPDPSK_P": { "label": "Perempuan di bawah garis kemiskinan", "description": "Persentase penduduk perempuan dengan pendapatan di bawah garis kemiskinan.", "unit": "%" },
-    "TPAKP": { "label": "Partisipasi angkatan kerja perempuan", "description": "Tingkat Partisipasi Angkatan Kerja Perempuan.", "unit": "%" },
-    "RLS_L": { "label": "Lama sekolah laki-laki", "description": "Rata-rata lama sekolah laki-laki.", "unit": "tahun" },
-    "RLS_P": { "label": "Lama sekolah perempuan", "description": "Rata-rata lama sekolah perempuan.", "unit": "tahun" },
-    "JPT": { "label": "Perguruan tinggi", "description": "Jumlah perguruan tinggi.", "unit": "perguruan tinggi" },
-    "JTP": { "label": "Dosen", "description": "Jumlah dosen.", "unit": "dosen" },
-    "JM": { "label": "Mahasiswa", "description": "Jumlah mahasiswa.", "unit": "mahasiswa" },
-    "APK": { "label": "Partisipasi kasar", "description": "Angka Partisipasi Kasar.", "unit": "%" },
-    "APM": { "label": "Partisipasi murni", "description": "Angka Partisipasi Murni.", "unit": "%" },
-    "PTP": { "label": "Penduduk tidak bersekolah", "description": "Persentase tidak bersekolah.", "unit": "%" }
+    "miskin_rate": {
+      "label": "Persentase penduduk miskin",
+      "description": "Nilai sumber merupakan proporsi 0–1; hanya nilai tampilan yang dikalikan 100.",
+      "unit": "%",
+      "display_multiplier": 100,
+      "precision": 2
+    },
+    "ppm_rate": {
+      "label": "ppm_rate",
+      "description": "Nama/definisi dan satuan tidak disediakan pada metadata sumber.",
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 6
+    },
+    "tk_sekolah_per_1000": {
+      "label": "Sekolah TK per 1.000 penduduk",
+      "description": "Indikator rasio pada sumber; satuan hitung sekolah per 1.000 penduduk.",
+      "unit": "sekolah per 1.000 penduduk",
+      "display_multiplier": 1,
+      "precision": 4
+    },
+    "tk_murid_per_1000": {
+      "label": "Murid TK per 1.000 penduduk",
+      "description": "Indikator rasio pada sumber; satuan hitung murid per 1.000 penduduk.",
+      "unit": "murid per 1.000 penduduk",
+      "display_multiplier": 1,
+      "precision": 4
+    },
+    "pt_per_1000": {
+      "label": "Perguruan tinggi per 1.000 penduduk",
+      "description": "Indikator rasio pada sumber; satuan hitung perguruan tinggi per 1.000 penduduk.",
+      "unit": "perguruan tinggi per 1.000 penduduk",
+      "display_multiplier": 1,
+      "precision": 4
+    },
+    "dosen_per_1000": {
+      "label": "Dosen per 1.000 penduduk",
+      "description": "Indikator rasio pada sumber; satuan hitung dosen per 1.000 penduduk.",
+      "unit": "dosen per 1.000 penduduk",
+      "display_multiplier": 1,
+      "precision": 4
+    },
+    "mahasiswa_per_1000": {
+      "label": "Mahasiswa per 1.000 penduduk",
+      "description": "Indikator rasio pada sumber; satuan hitung mahasiswa per 1.000 penduduk.",
+      "unit": "mahasiswa per 1.000 penduduk",
+      "display_multiplier": 1,
+      "precision": 4
+    },
+    "mahasiswa_per_PT": {
+      "label": "Mahasiswa per perguruan tinggi",
+      "description": "Rasio mahasiswa per perguruan tinggi pada sumber.",
+      "unit": "mahasiswa per perguruan tinggi",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "dosen_per_PT": {
+      "label": "Dosen per perguruan tinggi",
+      "description": "Rasio dosen per perguruan tinggi pada sumber.",
+      "unit": "dosen per perguruan tinggi",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "murid_per_sekolah": {
+      "label": "Murid TK per sekolah TK",
+      "description": "Rasio murid TK per sekolah TK pada sumber.",
+      "unit": "murid per sekolah",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "guru_per_sekolah": {
+      "label": "Guru TK per sekolah TK",
+      "description": "Rasio guru TK per sekolah TK pada sumber.",
+      "unit": "guru per sekolah",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "murid_per_guru": {
+      "label": "Murid TK per guru TK",
+      "description": "Rasio murid TK per guru TK pada sumber.",
+      "unit": "murid per guru",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "smk_density": {
+      "label": "Densitas SMK",
+      "description": "Kolom densitas pada sumber; definisi denominator tidak tersedia.",
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 8
+    },
+    "pt_density": {
+      "label": "Densitas perguruan tinggi",
+      "description": "Kolom densitas pada sumber; definisi denominator tidak tersedia.",
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 8
+    },
+    "edu_index": {
+      "label": "Indeks pendidikan",
+      "description": "Indeks pendidikan pada sumber.",
+      "unit": "poin",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "RLS_gap": {
+      "label": "Selisih rata-rata lama sekolah",
+      "description": "Selisih rata-rata lama sekolah pada sumber.",
+      "unit": "tahun",
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "PPDPSK_avg": {
+      "label": "PPDPSK (rata-rata)",
+      "description": "Kolom PPDPSK_avg; definisi dan unit agregasi tidak tersedia pada metadata sumber.",
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 2
+    },
+    "school_density": {
+      "label": "Densitas sekolah",
+      "description": "Kolom densitas pada sumber; definisi denominator tidak tersedia.",
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 8
+    },
+    "log_populasi": {
+      "label": "Log populasi",
+      "description": "Transformasi log populasi sebagaimana disediakan sumber.",
+      "unit": null,
+      "display_multiplier": 1,
+      "precision": 4
+    }
   }
 }

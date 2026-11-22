@@ -1,0 +1,4 @@
+data/source/*.csv -text whitespace=cr-at-eol
+data-source/*.csv -text whitespace=cr-at-eol
+*.joblib binary
+data/published/*.json text eol=lf

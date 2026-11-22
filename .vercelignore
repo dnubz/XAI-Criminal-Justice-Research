@@ -1,0 +1,8 @@
+.git
+.venv*
+node_modules
+artifacts
+model-artifacts
+*.zip
+*.tar.gz
+__pycache__

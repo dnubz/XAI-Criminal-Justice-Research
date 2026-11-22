@@ -1,4 +1,3 @@
-"""Import province/year model outputs and measurements without manufacturing XAI."""
 import argparse
 import csv
 import hashlib
@@ -11,7 +10,7 @@ from feature_metadata import apply_labels, definitions
 ROOT = Path(__file__).resolve().parents[1]
 LEVELS = {"low", "moderate", "high", "unavailable"}
 FEATURES = {
-    # Display order is a reading order, never a feature-importance ranking.
+
     "miskin_rate": ("Persentase penduduk miskin", "%", 100, 2),
     "IPG": ("Indeks pembangunan gender", "poin", 1, 2),
     "edu_index": ("Indeks pendidikan", "poin", 1, 2),
@@ -84,8 +83,8 @@ def convert_records(rows, allowed_codes=None, source_name="data_bersih_dasbor.cs
             "province_code": code, "province_name": row["provinsi"].strip(),
             "year": year, "is_training": flag == "true", "indicators": indicators,
         }
-        # The CSV uses 34 region names in historical years, while the map has 38.
-        # Do not project historical Papua outputs onto unverified modern extents.
+
+
         if code in {"91", "92"}:
             prediction["boundary_status"] = "unverified"
         for target, suffix in (("sexual", "seksual"), ("nonsexual", "non_seksual")):

@@ -1,0 +1,22 @@
+{
+  "name": "ruangaman",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "engines": { "node": "24.x" },
+  "packageManager": "npm@11.12.1",
+  "scripts": {
+    "dev": "npm run build:contracts && concurrently --kill-others --names api,web \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run start:dev --workspace @xai/api",
+    "dev:web": "npm run dev --workspace @xai-website/web",
+    "build:contracts": "npm run build --workspace @xai/contracts",
+    "build:api": "npm run build --workspace @xai/api",
+    "build:web": "npm run build --workspace @xai-website/web",
+    "build": "npm run build:api && npm run build:web",
+    "preview": "node scripts/preview-combined.mjs",
+    "test": "npm run test --workspace @xai/api && npm run test --workspace @xai-website/web && npm run test:integration",
+    "test:integration": "node --test tests/integration.test.mjs",
+    "test:model": "python -m unittest discover -s tests -p test_model_integrity.py -v"
+  },
+  "devDependencies": { "concurrently": "9.2.1" }
+}

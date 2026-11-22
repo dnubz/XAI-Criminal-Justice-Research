@@ -6,8 +6,16 @@ node_modules/
 preview-*.png
 preview-*.jpg
 .venv-ml/
+.venv-ml-314/
+.venv-validation/
 __pycache__/
 *.pyc
 model-artifacts/
 /dist/data/model-report.json
 *.zip
+/.vercel/
+/artifacts/
+/packages/*/dist/
+.env
+.env.local
+.env.*.local

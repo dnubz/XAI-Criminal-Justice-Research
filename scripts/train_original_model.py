@@ -1,4 +1,3 @@
-"""Temporal model comparison and real SHAP/LIME using four provisional original inputs."""
 import argparse
 import csv
 import hashlib
@@ -107,51 +106,11 @@ def save_json(path, value):
     os.replace(temporary, path)
 
 
-def write_summary(report):
-    selected = report["selected"]
-    lines = ["# Original-feature model results", "", f"Selected model: **{selected['model']}**, parameters `{json.dumps(selected['params'])}`.", "",
-             "This is the best of 30 tested configurations on forward-validation normalized MAE. It is not a universal best-model claim and does not establish that the new model outperforms the earlier CSV model.", "",
-             "## Inputs and targets", "", "Original inputs: `" + "`, `".join(FEATURES) + "`. Human-readable definitions come from the user's feature dictionary screenshots. PPKMLA is a percentage among ever-married women who had their first child before age 20; source values are already percentages. PDRB currency units remain unspecified. No engineered density, per-1000, gap, log, year, ID, previous prediction or previous class is used as input.", "",
-             "Observed targets: `rate_seksual` and `rate_non_seksual`. The old `kelas_*` columns were produced by a previous model and are not ground-truth training labels.", "",
-             "## Evaluation", "", "Selection folds: train 2021 → validate 2022; train 2021–2022 → validate 2023. Final fitting: 102 rows in 2021–2023. Final test: 32 rows in 2024. Preprocessing is fitted inside each training fold. Upstream cleaning of the supplied CSV has not been audited.", "",
-             "| Target | Test MAE | Test RMSE | Test R² | Macro F1 of derived risk classes | Class accuracy |", "|---|---:|---:|---:|---:|---:|"]
-    for target, metric in report["test_metrics"].items():
-        lines.append(f"| {target} | {metric['mae']:.4f} | {metric['rmse']:.4f} | {metric['r2']:.4f} | {metric['macro_f1']:.4f} | {metric['accuracy']:.4f} |")
-    lines += ["", "MAE/RMSE are in the source rate scale, not percentage accuracy. Sexual-violence class performance is limited; do not describe the model as meeting a blanket Macro-F1 > 0.75 requirement.", "",
-              "### Baseline and prior-output comparison", "", "| Output | Sexual MAE | Nonsexual MAE | Sexual R² | Nonsexual R² |", "|---|---:|---:|---:|---:|"]
-    for label, key in [("Selected four-input model", "test_metrics"), ("Training mean", "baseline_mean_test_metrics"), ("Previous year's observed rate", "baseline_last_year_test_metrics"), ("Previous model outputs supplied in CSV", "previous_csv_model_test_metrics")]:
-        a, b = (report[key][target] for target in TARGETS)
-        lines.append(f"| {label} | {a['mae']:.4f} | {b['mae']:.4f} | {a['r2']:.4f} | {b['r2']:.4f} |")
-    lines += ["", "The prior model's supplied predictions have lower test errors than this four-input model in this file. Its training and FE provenance are unavailable, so those outputs were not used to choose or train the new model. The persistence baseline is competitive. More original inputs and additional independent years are needed for a stronger research comparison.", "",
-              "### Best configuration per family", "", "| Family | Forward-validation normalized MAE | Parameters |", "|---|---:|---|"]
-    families = set()
-    for row in report["ranking"]:
-        if row["model"] not in families:
-            lines.append(f"| {row['model']} | {row['validation_normalized_mae']:.4f} | `{json.dumps(row['params'])}` |")
-            families.add(row["model"])
-    lines += ["", "Complete fold results for all 30 candidates are in `benchmark.json`.", "", "## Risk-class definitions", "",
-              "Classes are regenerated from tertiles of observed training rates. Below the lower cutoff is low; from the lower cutoff up to the upper cutoff is moderate; at or above the upper cutoff is high. These are relative research classes and are not validated absolute danger thresholds.", "",
-              "| Target | Low → moderate cutoff | Moderate → high cutoff |", "|---|---:|---:|"]
-    for target, cutoffs in report["risk_thresholds"].items():
-        lines.append(f"| {target} | {cutoffs['low_to_moderate']:.6f} | {cutoffs['moderate_to_high']:.6f} |")
-    lines += ["", "## SHAP and LIME", "", "Both methods use exactly the four original input columns and explain the same fitted predictor in raw input coordinates. Internal feature scaling for nearest-neighbor distance is part of the fitted pipeline, not an additional FE column.", "",
-              "SHAP: " + report.get("shap_reference", "Exact interventional SHAP using training background rows.") + " All 134 province/year rows and both targets were explained. Baseline plus four SHAP contributions reconstructs each exported prediction. Attributions depend on the background and correlated economic inputs; they are not causal effects.", "",
-              "LIME: continuous-feature local linear approximations, 6,000 perturbations, seed 42. Its coefficient is per LIME-standardized input, not a contribution relative to the SHAP baseline. Neighborhood parameters were selected by surrogate fidelity on seven 2023 TRAINING rows only; the predictor and its test metrics were not retuned. LIME is approximate and can have low local fidelity; SHAP is the default display.", "",
-              "| Target | Max SHAP additivity error | Test LIME R² minimum | Test LIME R² median | Test LIME R² maximum |", "|---|---:|---:|---:|---:|"]
-    for target, values in report.get("xai_diagnostics", {}).items():
-        lines.append(f"| {target} | {values['shap_max_additivity_error']:.3g} | {values['lime_test_fidelity_min']:.4f} | {values['lime_test_fidelity_median']:.4f} | {values['lime_test_fidelity_max']:.4f} |")
-    if "lime_configuration_selection" in report:
-        config = report["lime_configuration_selection"]["selected"]
-        lines += ["", f"Chosen LIME neighborhood: sample_around_instance={config['sample_around_instance']}, kernel_width={config['kernel_width']}."]
-    lines += ["", "## Coverage and reproducibility", "", "134 rows, 2021–2024. Training-year predictions are in-sample and labeled in the interface. There are no input values for 2025/2026, so no forecasts for those years are fabricated. The latest map has 32 available provinces. Historical Papua data is retained, but its modern boundary compatibility is unverified and its shapes remain gray.", "",
-              f"Source SHA-256: `{report['source_sha256']}`. Model version: `{report['model_version']}`. Seed: 42. The source CSV is unchanged. Model bundle: `model.joblib`. Dependency versions: `../requirements-ml.txt`.", "",
-              "Method references: [scikit-learn data leakage guidance](https://scikit-learn.org/stable/common_pitfalls.html), [SHAP](https://shap.readthedocs.io/en/stable/), [LIME](https://lime-ml.readthedocs.io/en/latest/lime.html).", ""]
-    (ARTIFACTS / "RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def benchmark():
     rows, X, y, years = read_source()
-    # Two forward validation folds; 2024 never participates in selection.
+
     folds = [(years < 2022, years == 2022), (years < 2023, years == 2023)]
     specs = candidates()
     results = []
@@ -222,7 +181,7 @@ def explain():
     background = background[rng.choice(len(background), size=min(64, len(background)), replace=False)]
     data = json.loads((ROOT / "dist/data/predictions.json").read_text(encoding="utf-8-sig"))
     records = {(row["province_code"], row["year"]): row for row in data["predictions"]}
-    # Choose the neighborhood on seven TRAINING rows, without using 2024 outcomes.
+
     calibration_rows = np.where(years == 2023)[0][::5]
     calibration = []
     for around, width in [(False, 1.5), (True, 1.5), (True, 1.0), (True, .75), (True, .5)]:
@@ -294,7 +253,6 @@ def explain():
     save_json(ARTIFACTS / "benchmark.json", report)
     save_json(ROOT / "dist/data/predictions.json", data)
     save_json(ROOT / "dist/data/model-report.json", report)
-    write_summary(report)
     print("Saved real predictions and original-feature SHAP/LIME for all", len(rows), "province/year records", flush=True)
 
 

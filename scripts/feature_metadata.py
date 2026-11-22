@@ -1,4 +1,3 @@
-"""Display definitions supplied by the user; keep model input codes and values intact."""
 import json
 from pathlib import Path
 

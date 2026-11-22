@@ -1,0 +1,31 @@
+{
+  "name": "@xai/api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read-only NestJS API for the provincial violence-risk research dashboard",
+  "engines": { "node": "24.x" },
+  "scripts": {
+    "prebuild": "npm run build --workspace @xai/contracts && node scripts/copy-published-data.mjs",
+    "build": "nest build",
+    "start": "node dist/src/main.js",
+    "prestart:dev": "npm run prebuild",
+    "start:dev": "nest start --watch",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@xai/contracts": "1.0.0",
+    "@nestjs/common": "^11.1.0",
+    "@nestjs/core": "^11.1.0",
+    "@nestjs/platform-express": "^11.1.0",
+    "dotenv": "^16.6.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.7",
+    "@nestjs/schematics": "^11.0.5",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.15.30",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "schema_version": "1.0.0",
+  "data_version": "mt-rf-23f-seed67-e65c1d265668",
+  "provinces": [
+    {
+      "province_code": "11",
+      "province_name": "Aceh",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "51",
+      "province_name": "Bali",
+      "island": "bali-nusa-tenggara"
+    },
+    {
+      "province_code": "36",
+      "province_name": "Banten",
+      "island": "java"
+    },
+    {
+      "province_code": "17",
+      "province_name": "Bengkulu",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "34",
+      "province_name": "Daerah Istimewa Yogyakarta",
+      "island": "java"
+    },
+    {
+      "province_code": "31",
+      "province_name": "DKI Jakarta",
+      "island": "java"
+    },
+    {
+      "province_code": "75",
+      "province_name": "Gorontalo",
+      "island": "sulawesi"
+    },
+    {
+      "province_code": "15",
+      "province_name": "Jambi",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "32",
+      "province_name": "Jawa Barat",
+      "island": "java"
+    },
+    {
+      "province_code": "33",
+      "province_name": "Jawa Tengah",
+      "island": "java"
+    },
+    {
+      "province_code": "35",
+      "province_name": "Jawa Timur",
+      "island": "java"
+    },
+    {
+      "province_code": "61",
+      "province_name": "Kalimantan Barat",
+      "island": "kalimantan"
+    },
+    {
+      "province_code": "63",
+      "province_name": "Kalimantan Selatan",
+      "island": "kalimantan"
+    },
+    {
+      "province_code": "62",
+      "province_name": "Kalimantan Tengah",
+      "island": "kalimantan"
+    },
+    {
+      "province_code": "64",
+      "province_name": "Kalimantan Timur",
+      "island": "kalimantan"
+    },
+    {
+      "province_code": "65",
+      "province_name": "Kalimantan Utara",
+      "island": "kalimantan"
+    },
+    {
+      "province_code": "19",
+      "province_name": "Kepulauan Bangka Belitung",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "21",
+      "province_name": "Kepulauan Riau",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "18",
+      "province_name": "Lampung",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "81",
+      "province_name": "Maluku",
+      "island": "maluku"
+    },
+    {
+      "province_code": "82",
+      "province_name": "Maluku Utara",
+      "island": "maluku"
+    },
+    {
+      "province_code": "52",
+      "province_name": "Nusa Tenggara Barat",
+      "island": "bali-nusa-tenggara"
+    },
+    {
+      "province_code": "53",
+      "province_name": "Nusa Tenggara Timur",
+      "island": "bali-nusa-tenggara"
+    },
+    {
+      "province_code": "91",
+      "province_name": "Papua",
+      "island": "papua"
+    },
+    {
+      "province_code": "92",
+      "province_name": "Papua Barat",
+      "island": "papua"
+    },
+    {
+      "province_code": "96",
+      "province_name": "Papua Barat Daya",
+      "island": "papua"
+    },
+    {
+      "province_code": "95",
+      "province_name": "Papua Pegunungan",
+      "island": "papua"
+    },
+    {
+      "province_code": "93",
+      "province_name": "Papua Selatan",
+      "island": "papua"
+    },
+    {
+      "province_code": "94",
+      "province_name": "Papua Tengah",
+      "island": "papua"
+    },
+    {
+      "province_code": "14",
+      "province_name": "Riau",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "76",
+      "province_name": "Sulawesi Barat",
+      "island": "sulawesi"
+    },
+    {
+      "province_code": "73",
+      "province_name": "Sulawesi Selatan",
+      "island": "sulawesi"
+    },
+    {
+      "province_code": "72",
+      "province_name": "Sulawesi Tengah",
+      "island": "sulawesi"
+    },
+    {
+      "province_code": "74",
+      "province_name": "Sulawesi Tenggara",
+      "island": "sulawesi"
+    },
+    {
+      "province_code": "71",
+      "province_name": "Sulawesi Utara",
+      "island": "sulawesi"
+    },
+    {
+      "province_code": "13",
+      "province_name": "Sumatera Barat",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "16",
+      "province_name": "Sumatera Selatan",
+      "island": "sumatera"
+    },
+    {
+      "province_code": "12",
+      "province_name": "Sumatera Utara",
+      "island": "sumatera"
+    }
+  ],
+  "source_by_display_code": {
+    "11": "11",
+    "51": "51",
+    "36": "36",
+    "17": "17",
+    "34": "34",
+    "31": "31",
+    "75": "75",
+    "15": "15",
+    "32": "32",
+    "33": "33",
+    "35": "35",
+    "61": "61",
+    "63": "63",
+    "62": "62",
+    "64": "64",
+    "65": "65",
+    "19": "19",
+    "21": "21",
+    "18": "18",
+    "81": "81",
+    "82": "82",
+    "52": "52",
+    "53": "53",
+    "91": "91",
+    "92": "92",
+    "96": "92",
+    "95": "91",
+    "93": "91",
+    "94": "91",
+    "14": "14",
+    "76": "76",
+    "73": "73",
+    "72": "72",
+    "74": "74",
+    "71": "71",
+    "13": "13",
+    "16": "16",
+    "12": "12"
+  }
+}
