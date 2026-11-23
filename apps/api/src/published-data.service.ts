@@ -33,7 +33,7 @@ export class PublishedDataService {
     private dataDirectory() {
         if (process.env.PUBLISHED_DATA_DIR)
             return resolve(process.env.PUBLISHED_DATA_DIR);
-        const candidates = [resolve(process.cwd(), 'data/published'), resolve(__dirname, '../../../data/published')];
+        const candidates = [resolve(__dirname, '../../data/published'), resolve(process.cwd(), 'data/published'), resolve(__dirname, '../../../data/published')];
         return candidates.find((candidate) => {
             try {
                 readFileSync(join(candidate, 'manifest.json'));

@@ -4,13 +4,14 @@ import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 const root = resolve(import.meta.dirname, '..');
 const apiRoot = resolve(root, 'apps/api');
 const require = createRequire(import.meta.url);
 const manifest = JSON.parse(await readFile(resolve(root, 'data/published/manifest.json'), 'utf8'));
 let server, base;
 before(async () => {
-    process.chdir(apiRoot);
+    process.chdir(tmpdir());
     delete process.env.PUBLISHED_DATA_DIR;
     process.env.CORS_ORIGINS = 'http://127.0.0.1:5173';
     const handler = require(resolve(apiRoot, 'api/index.js'));
