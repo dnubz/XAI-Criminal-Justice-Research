@@ -3,6 +3,7 @@
   "framework": null,
   "installCommand": "npm ci --prefix ../..",
   "buildCommand": "npm run build",
+  "outputDirectory": "public",
   "functions": {
     "api/index.js": {
       "includeFiles": "{data/published,dist}/**"

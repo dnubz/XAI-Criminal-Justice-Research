@@ -5,6 +5,7 @@ const packageRoot = fileURLToPath(new URL('../', import.meta.url));
 const repoData = resolve(packageRoot, '../../data/published');
 const bundleData = resolve(packageRoot, 'data/published');
 const manifestPath = resolve(repoData, 'manifest.json');
+await mkdir(resolve(packageRoot, 'public'), { recursive: true });
 let manifest;
 try {
     manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
