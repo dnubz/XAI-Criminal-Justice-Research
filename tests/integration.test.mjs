@@ -42,7 +42,7 @@ test('Vercel entry point serves the current bundle and frontend geometry contrac
     const map = await fetch(`${base}/api/v1/map?year=2024&category=sexual`).then(r => r.json());
     assert.equal(map.data_version, metadata.data_version);
     assert.deepEqual(new Set(map.provinces.map(p => p.province_code)), new Set(geometry.features.map(f => f.properties.KODE_PROV)));
-    assert.equal(map.provinces.filter(p => p.risk.sexual === 'unavailable').length, 6);
+    assert.equal(map.provinces.filter(p => p.risk.sexual === 'unavailable').length, 0);
 });
 test('published SHAP values survive the function route and Papua reference uses 34 sources', async () => {
     const response = await fetch(`${base}/api/v1/provinces/93?year=2023`);
@@ -57,8 +57,12 @@ test('published SHAP values survive the function route and Papua reference uses 
         const sum = output.shap_base_value + output.explanations.reduce((total, item) => total + item.contribution, 0);
         assert.ok(Math.abs(sum - output.predicted_value) < 1e-7);
     }
-    const unavailable = await fetch(`${base}/api/v1/provinces/93?year=2024`).then(r => r.json());
-    assert.equal(unavailable.predictions.sexual, null);
+    const fallback = await fetch(`${base}/api/v1/provinces/93?year=2024`).then(r => r.json());
+    assert.equal(fallback.year, 2024);
+    assert.equal(fallback.source_year, 2023);
+    assert.deepEqual(fallback.predictions, detail.predictions);
+    assert.deepEqual(fallback.indicators, detail.indicators);
+    assert.equal(fallback.predictions.sexual.reference_year, 2023);
 });
 test('CSV and map agree on filters through the function entry point', async () => {
     const query = 'year=2024&category=sexual&island=java&risk=low';

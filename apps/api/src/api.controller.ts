@@ -50,12 +50,12 @@ export class ApiController {
             return (filters.island === 'all' || definition.island === filters.island) && (filters.risk === 'all' || level === filters.risk);
         }).map(({ definition, record, mapped }) => {
             const risk = Object.fromEntries(CATEGORIES.map((key) => [key, record?.[key]?.level ?? 'unavailable'])) as Record<Category, Risk>;
-            const sourceProvince = (mapped || (year <= 2023 && ['91', '92'].includes(definition.province_code))) && record
+            const sourceProvince = (mapped || definition.island === 'papua') && record
                 ? { code: record.province_code, name: record.province_name }
                 : null;
             const boundaryStatus = !record ? 'missing' : mapped ? 'mapped' : 'matched';
-            const sourceExplanation = !record ? this.unavailableReason(definition.province_code, year, data.predictions.papua_display_mapping) : mapped ? data.predictions.papua_display_mapping.display_note : null;
-            return { province_code: definition.province_code, province_name: definition.province_name, island: this.islandLabel(definition.island), risk, boundary_status: boundaryStatus, source_province: sourceProvince, source_explanation: sourceExplanation, is_training: record?.is_training ?? false };
+            const sourceExplanation = this.sourceExplanation(definition.province_code, year, record, mapped, data);
+            return { province_code: definition.province_code, province_name: definition.province_name, island: this.islandLabel(definition.island), risk, boundary_status: boundaryStatus, source_province: sourceProvince, source_explanation: sourceExplanation, source_year: record?.year ?? null, is_training: record?.is_training ?? false };
         });
         return this.versioned(data, { year, category, filters, count: provinces.length, provinces });
     }
@@ -78,21 +78,21 @@ export class ApiController {
         const entry = this.displayRecords(data, year).find((item) => item.definition.province_code === code);
         const record = entry?.record ?? null;
         const mapped = entry?.mapped ?? false;
-        const references = this.references(data, year);
+        const references = this.references(data, record?.year ?? year);
         const predictions = Object.fromEntries(CATEGORIES.map((category) => {
             const output = record?.[category] ?? null;
-            return [category, output ? { ...output, reference_mean: references[category].mean, reference_count: references[category].count } : null];
+            return [category, output ? { ...output, reference_mean: references[category].mean, reference_count: references[category].count, reference_year: record?.year ?? year } : null];
         })) as Record<Category, (CategoryOutput & {
             reference_mean: number | null;
             reference_count: number;
         }) | null>;
         const risk = Object.fromEntries(CATEGORIES.map((category) => [category, predictions[category]?.level ?? 'unavailable'])) as Record<Category, Risk>;
-        const sourceProvince = (mapped || (year <= 2023 && ['91', '92'].includes(code))) && record
+        const sourceProvince = (mapped || definition.island === 'papua') && record
             ? { code: record.province_code, name: record.province_name }
             : null;
         const boundaryStatus = !record ? 'missing' : mapped ? 'mapped' : 'matched';
-        const sourceExplanation = !record ? this.unavailableReason(code, year, data.predictions.papua_display_mapping) : mapped ? data.predictions.papua_display_mapping.display_note : null;
-        return this.versioned(data, { year, province_code: code, province_name: definition.province_name, is_training: record?.is_training ?? false, boundary_status: boundaryStatus, source_province: sourceProvince, source_explanation: sourceExplanation, risk, predictions, indicators: record?.indicators ?? [], observation_available: Boolean(record), provenance: this.provenance(data) });
+        const sourceExplanation = this.sourceExplanation(code, year, record, mapped, data);
+        return this.versioned(data, { year, province_code: code, province_name: definition.province_name, is_training: record?.is_training ?? false, boundary_status: boundaryStatus, source_province: sourceProvince, source_explanation: sourceExplanation, source_year: record?.year ?? null, risk, predictions, indicators: record?.indicators ?? [], observation_available: Boolean(record), provenance: this.provenance(data) });
     }
     @Get('export.csv')
     @Header('Content-Type', 'text/csv; charset=utf-8')
@@ -108,17 +108,17 @@ export class ApiController {
             const risk = output?.level ?? 'unavailable';
             return (filters.island === 'all' || definition.island === filters.island) && (filters.risk === 'all' || risk === filters.risk);
         });
-        const header = ['province_code', 'province_name', 'island', 'year', 'category', 'risk_level', 'predicted_value', 'observed_value', 'source_province_code', 'boundary_status', 'source_explanation', 'is_training', 'indicators_json', 'shap_values_json', 'lime_values_json', 'shap_base_value', 'lime_fidelity', 'reference_mean', 'reference_count', 'model_version'];
+        const header = ['province_code', 'province_name', 'island', 'year', 'category', 'risk_level', 'predicted_value', 'observed_value', 'source_province_code', 'boundary_status', 'source_explanation', 'is_training', 'indicators_json', 'shap_values_json', 'lime_values_json', 'shap_base_value', 'lime_fidelity', 'reference_mean', 'reference_count', 'model_version', 'source_year', 'reference_year'];
         const lines = [header.join(','), ...rows.map(({ definition, source, record, mapped }) => {
                 const output = record?.[category] ?? null;
                 const boundaryStatus = !record ? 'missing' : mapped ? 'mapped' : 'matched';
-                const sourceCode = (mapped || (year <= 2023 && ['91', '92'].includes(definition.province_code))) && record ? source : null;
-                const sourceExplanation = !record ? this.unavailableReason(definition.province_code, year, data.predictions.papua_display_mapping) : mapped ? data.predictions.papua_display_mapping.display_note : null;
-                const values: unknown[] = [definition.province_code, definition.province_name, this.islandLabel(definition.island), year, category, output?.level ?? 'unavailable', output?.predicted_value ?? null, output?.observed_value ?? null, sourceCode, boundaryStatus, sourceExplanation, record?.is_training ?? false, JSON.stringify(record?.indicators ?? []), JSON.stringify(output?.explanations ?? []), JSON.stringify(output?.lime_explanations ?? []), output?.shap_base_value ?? null, output?.lime_fidelity ?? null, this.references(data, year)[category].mean, this.references(data, year)[category].count, data.manifest.data_version];
+                const sourceCode = (mapped || definition.island === 'papua') && record ? source : null;
+                const sourceExplanation = this.sourceExplanation(definition.province_code, year, record, mapped, data);
+                const values: unknown[] = [definition.province_code, definition.province_name, this.islandLabel(definition.island), year, category, output?.level ?? 'unavailable', output?.predicted_value ?? null, output?.observed_value ?? null, sourceCode, boundaryStatus, sourceExplanation, record?.is_training ?? false, JSON.stringify(record?.indicators ?? []), JSON.stringify(output?.explanations ?? []), JSON.stringify(output?.lime_explanations ?? []), output?.shap_base_value ?? null, output?.lime_fidelity ?? null, this.references(data, record?.year ?? year)[category].mean, this.references(data, record?.year ?? year)[category].count, data.manifest.data_version, record?.year ?? null, record?.year ?? null];
                 return values.map((value) => this.csvCell(value)).join(',');
             })];
         const csv = `\uFEFF${lines.join('\r\n')}\r\n`;
-        const etag = `"${createHash('sha256').update(data.manifest.data_version + ':' + year + ':' + category + ':' + JSON.stringify(filters)).digest('hex')}"`;
+        const etag = `"${createHash('sha256').update(csv).digest('hex')}"`;
         response.setHeader('ETag', etag);
         response.setHeader('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=86400');
         response.setHeader('Content-Disposition', `attachment; filename="violence-risk-${year}-${category}.csv"`);
@@ -156,7 +156,8 @@ export class ApiController {
     private displayRecords(data: ReturnType<PublishedDataService['get']>, year: number) {
         return data.mapping.provinces.map((definition) => {
             const source = data.mapping.source_by_display_code[definition.province_code] ?? definition.province_code;
-            const record = data.predictions.predictions.find((row) => row.province_code === source && row.year === year) ?? null;
+            const sourceYear = year === 2024 && data.predictions.papua_display_mapping.unavailable_2024_display_codes.includes(definition.province_code) ? 2023 : year;
+            const record = data.predictions.predictions.find((row) => row.province_code === source && row.year === sourceYear) ?? null;
             return { definition, source, record, mapped: source !== definition.province_code };
         });
     }
@@ -188,6 +189,13 @@ export class ApiController {
     }
     private provenance(data: ReturnType<PublishedDataService['get']>) {
         return { model_name: data.predictions.model_name ?? null, model_version: data.predictions.model_version, source_file: data.predictions.source_file ?? null, source_sha256: data.predictions.source_sha256 ?? null };
+    }
+    private sourceExplanation(code: string, year: number, record: PredictionRecord | null, mapped: boolean, data: ReturnType<PublishedDataService['get']>) {
+        if (!record)
+            return this.unavailableReason(code, year, data.predictions.papua_display_mapping);
+        if (record.year !== year)
+            return `Data ${record.year} ditampilkan untuk pilihan tahun ${year} karena data ${year} belum tersedia. ${data.predictions.papua_display_mapping.display_note}`;
+        return mapped ? data.predictions.papua_display_mapping.display_note : null;
     }
     private unavailableReason(code: string, year: number, mapping: ReturnType<PublishedDataService['get']>['predictions']['papua_display_mapping']) {
         if (year === 2024 && mapping.unavailable_2024_display_codes?.includes(code))

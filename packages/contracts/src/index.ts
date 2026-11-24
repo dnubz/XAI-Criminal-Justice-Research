@@ -35,6 +35,7 @@ export interface MapProvince {
     boundary_status: 'matched' | 'mapped' | 'missing';
     source_province?: SourceProvince | null;
     source_explanation?: string | null;
+    source_year?: number | null;
     is_training?: boolean;
 }
 export interface MapResponse {
@@ -66,6 +67,7 @@ export interface CategoryDetail {
     shap_base_value?: number | null;
     reference_mean: number | null;
     reference_count: number;
+    reference_year?: number;
 }
 export interface ProvinceDetail {
     data_version: string;
@@ -76,6 +78,7 @@ export interface ProvinceDetail {
     boundary_status: 'matched' | 'mapped' | 'missing';
     source_province?: SourceProvince | null;
     source_explanation?: string | null;
+    source_year?: number | null;
     risk: Record<Category, Risk>;
     predictions: Record<Category, CategoryDetail | null>;
     indicators: Indicator[];

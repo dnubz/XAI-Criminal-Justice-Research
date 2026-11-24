@@ -48,7 +48,7 @@ describe('dashboard interactions', () => {
         await user.selectOptions(screen.getByRole('combobox', { name: 'Metode penjelasan' }), 'lime');
         expect(await screen.findByText(/Kecocokan LIME/)).toBeTruthy();
     }, 20000);
-    it('updates year/category, filters risk, and shows missing 2024 Papua data', async () => {
+    it('labels 2023 Papua values and reference year when 2024 is selected', async () => {
         const user = userEvent.setup();
         render(<App />);
         await screen.findByRole('heading', { name: 'Jawa Barat' });
@@ -56,7 +56,11 @@ describe('dashboard interactions', () => {
         await user.selectOptions(screen.getByRole('combobox', { name: 'Pilih tahun' }), '2024');
         await user.click(screen.getByRole('button', { name: 'Peta Papua Tengah' }));
         expect(await screen.findByRole('heading', { name: 'Papua Tengah' })).toBeTruthy();
-        expect(await screen.findByText(/Data 2024 tidak tersedia/)).toBeTruthy();
+        expect(await screen.findByText('Data 2023')).toBeTruthy();
+        expect(screen.getByText(/Data 2023 ditampilkan untuk pilihan tahun 2024/)).toBeTruthy();
+        expect(screen.getByText(/Rata-rata menggunakan data yang tersedia pada 2023/)).toBeTruthy();
+        expect(screen.getByText('Papua memakai data 2023')).toBeTruthy();
+        expect(screen.getByRole('combobox', { name: 'Pilih tahun' })).toHaveProperty('value', '2024');
         await user.click(screen.getByRole('button', { name: /Tinggi/ }));
         expect(screen.getByRole('button', { name: /Tinggi/ }).getAttribute('aria-pressed')).toBe('true');
         await user.click(screen.getByRole('button', { name: 'Nonseksual' }));

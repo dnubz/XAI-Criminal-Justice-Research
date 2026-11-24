@@ -162,7 +162,7 @@ export default function App() {
           </div>
 
           <div className="map-canvas">
-            <div className="map-caption"><strong>{categories.find(item => item.id === category)?.label}</strong><span>{filteredMap.filter(row => row.risk[category] !== 'unavailable').length} dari {filteredMap.length} provinsi terpetakan</span></div>
+            <div className="map-caption"><strong>{categories.find(item => item.id === category)?.label}</strong><span>{filteredMap.filter(row => row.risk[category] !== 'unavailable').length} dari {filteredMap.length} provinsi terpetakan</span>{mapData.some(row => row.source_year != null && row.source_year !== year) && <span>Papua memakai data 2023</span>}</div>
             {geometry ? <MapView geometry={geometry} provinces={mapData} selected={selected} activeCategory={category} island={island} riskFilter={riskFilter} onSelect={chooseProvince}/> : <MapPlaceholder label={bootLoading ? 'Memuat peta dan batas provinsi…' : 'Peta belum dapat dimuat.'}/>}
             <div className="map-loading" aria-live="polite" hidden={!mapLoading}><span className="spinner"/> Memuat data peta…</div>
             <div className="map-hint"><MapPin size={14}/> Pilih provinsi pada peta untuk melihat detail</div>
@@ -175,9 +175,9 @@ export default function App() {
           {detailLoading && !detail ? <div className="skeleton" aria-label="Memuat detail provinsi"><i /><i /><i /></div> : detail ? <>
             <h1>{detail.province_name}</h1>
             <p className="province-meta">{mapData.find(row => row.province_code === selected)?.island ?? 'Indonesia'}{detail.is_training ? ' · Data pelatihan' : ''}</p>
-            {detail.source_province && <div className="source-note"><Info size={16}/><span>Data historis dari <strong>{detail.source_province.name}</strong> (kode {detail.source_province.code}). {detail.source_explanation}</span></div>}
+            {detail.source_province && <div className="source-note"><Info size={16}/><span>Data historis {detail.source_year ?? detail.year} dari <strong>{detail.source_province.name}</strong> (kode {detail.source_province.code}). {detail.source_explanation}</span></div>}
             {detail.boundary_status === 'missing' && <div className="missing-note" role="status"><Info size={17}/><span>{detail.source_explanation ?? `Data prediksi untuk ${detail.province_name} pada ${year} belum tersedia.`}</span></div>}
-            <section className="risk-section" aria-labelledby="risk-heading"><div className="section-title"><h2 id="risk-heading">Prediksi risiko</h2><span className="year-badge">{year}</span></div>
+            <section className="risk-section" aria-labelledby="risk-heading"><div className="section-title"><h2 id="risk-heading">Prediksi risiko</h2><span className="year-badge">Data {detail.source_year ?? year}</span></div>
               {categories.map(item => <button key={item.id} className={`risk-row ${category === item.id ? 'current' : ''}`} onClick={() => setCategory(item.id)}><span>{item.label}</span><RiskBadge level={detail.risk[item.id]}/></button>)}
             </section>
             <section className="xai-section" aria-labelledby="xai-heading">
@@ -185,7 +185,7 @@ export default function App() {
                 <label className="method-select"><span className="sr-only">Metode penjelasan</span><select value={method} onChange={event => setMethod(event.target.value as Method)} disabled={!feature || (!feature.explanations.length && !feature.lime_explanations.length)}><option value="shap">SHAP</option><option value="lime">LIME</option></select><ChevronDown size={14} aria-hidden="true"/></label>
               </div>
               {feature ? <>
-                <Comparison predicted={feature.predicted_value} observed={feature.observed_value} mean={feature.reference_mean} count={feature.reference_count} unit={metadata?.target_unit ?? 'Korban per 100.000 penduduk'} year={year!}/>
+                <Comparison predicted={feature.predicted_value} observed={feature.observed_value} mean={feature.reference_mean} count={feature.reference_count} unit={metadata?.target_unit ?? 'Korban per 100.000 penduduk'} year={feature.reference_year ?? detail.source_year ?? year!}/>
                 {topFactors.length ? <div className="factor-list">{topFactors.map(item => <Factor key={item.column} item={item} method={method} max={maxContribution}/>)}</div> : <div className="empty-state">Belum ada penjelasan faktor untuk kategori dan tahun ini.</div>}
                 {method === 'lime' && Number.isFinite(feature.lime_fidelity) && <p className="fidelity">Kecocokan LIME (R² lokal): <strong>{displayNumber(feature.lime_fidelity, 3)}</strong></p>}
                 <p className="method-note">{method === 'shap' ? 'Nilai SHAP menunjukkan kontribusi model terhadap selisih dari rata-rata tahun yang sama. Ini bukan hubungan sebab-akibat.' : 'LIME memperkirakan model di sekitar kondisi provinsi ini. Bobot lokal bukan perubahan jumlah korban. R² menunjukkan kecocokan penjelasan dengan model.'}</p>

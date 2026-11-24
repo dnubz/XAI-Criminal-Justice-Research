@@ -103,14 +103,22 @@ test('distinguishes malformed and unknown province codes', async () => {
     assert.equal((await fetch(`${base}/provinces/no?year=2024`)).status, 400);
     assert.equal((await fetch(`${base}/provinces/99?year=2024`)).status, 404);
 });
-test('returns unavailable observations for all six valid Papua provinces in 2024', async () => {
+test('uses labeled 2023 observations for all six Papua provinces in the 2024 view', async () => {
     for (const code of ['91', '92', '93', '94', '95', '96']) {
         const response = await fetch(`${base}/provinces/${code}?year=2024`);
         assert.equal(response.status, 200, code);
         const body = await response.json();
-        assert.equal(body.observation_available, false, code);
-        assert.equal(body.predictions.sexual, null, code);
-        assert.match(body.source_explanation, /2024 tidak tersedia/i, code);
+        const historical = await fetch(`${base}/provinces/${code}?year=2023`).then(r => r.json());
+        assert.equal(body.observation_available, true, code);
+        assert.equal(body.year, 2024);
+        assert.equal(body.source_year, 2023);
+        assert.equal(body.is_training, true);
+        assert.deepEqual(body.predictions, historical.predictions);
+        assert.deepEqual(body.indicators, historical.indicators);
+        assert.deepEqual(body.source_province, historical.source_province);
+        assert.match(body.source_explanation, /Data 2023 ditampilkan.*2024/);
+        assert.equal(body.predictions.sexual.reference_year, 2023);
+        assert.equal(body.predictions.sexual.reference_count, 3);
     }
 });
 test('maps historical Papua display provinces to source observations', async () => {
@@ -129,7 +137,7 @@ test('reference means use unique source observations and ignore request filters'
     assert.equal(filtered.provinces.length, 4);
 });
 test('CSV rows follow the selected category and map filters and keep missing values blank', async () => {
-    const query = 'year=2023&category=sexual&island=papua&risk=low';
+    const query = 'year=2024&category=sexual&island=papua&risk=low';
     const map = await fetch(`${base}/map?${query}`).then((r) => r.json());
     const response = await fetch(`${base}/export.csv?${query}`);
     const csv = await response.text();
@@ -141,6 +149,16 @@ test('CSV rows follow the selected category and map filters and keep missing val
     assert.deepEqual(csvCodes, map.provinces.map((province) => province.province_code));
     assert.deepEqual(map.provinces.map((province) => province.province_code), ['91', '93', '94', '95']);
     assert.match(csv, /,,/);
+    const parsed = csv.replace(/^\uFEFF/, '').trim().split(/\r?\n/).map(parseCsv);
+    const headers = parsed.shift();
+    for (const row of parsed) {
+        const item = Object.fromEntries(headers.map((key, i) => [key, row[i]]));
+        assert.equal(item.year, '2024');
+        assert.equal(item.source_year, '2023');
+        assert.equal(item.reference_year, '2023');
+        assert.equal(item.source_province_code, '91');
+        assert.equal(item.predicted_value, '1');
+    }
 });
 test('health is no-store; public responses carry a version and cache policy', async () => {
     const health = await fetch(`${base}/health`);
@@ -252,9 +270,23 @@ test('loads the real versioned published bundle from the function package', asyn
         assert.equal(papua.predictions.sexual.reference_count, expectedValues.size);
         assert.ok(Math.abs(papua.predictions.sexual.reference_mean - expectedMean) < 1e-12);
         const map2024 = await fetch(`${publishedBase}/map?year=2024&category=sexual`).then((response) => response.json());
-        const unavailablePapua = map2024.provinces.filter((province) => ['91', '92', '93', '94', '95', '96'].includes(province.province_code));
-        assert.equal(unavailablePapua.length, 6);
-        assert.ok(unavailablePapua.every((province) => province.boundary_status === 'missing' && province.risk.sexual === 'unavailable'));
+        const historicalPapua = map2024.provinces.filter((province) => ['91', '92', '93', '94', '95', '96'].includes(province.province_code));
+        assert.equal(historicalPapua.length, 6);
+        assert.ok(historicalPapua.every((province) => province.source_year === 2023 && province.risk.sexual !== 'unavailable'));
+        for (const province of historicalPapua) {
+            const detail = await fetch(`${publishedBase}/provinces/${province.province_code}?year=2024`).then(r => r.json());
+            const source = data.predictions.find(row => row.province_code === mapping.source_by_display_code[province.province_code] && row.year === 2023);
+            for (const category of ['sexual', 'nonsexual']) {
+                assert.equal(detail.predictions[category].predicted_value, source[category].predicted_value);
+                assert.deepEqual(detail.predictions[category].explanations, source[category].explanations);
+                assert.deepEqual(detail.predictions[category].lime_explanations, source[category].lime_explanations);
+                assert.equal(detail.predictions[category].reference_count, 34);
+                assert.equal(detail.predictions[category].reference_year, 2023);
+            }
+        }
+        const java = await fetch(`${publishedBase}/provinces/32?year=2024`).then(r => r.json());
+        assert.equal(java.source_year, 2024);
+        assert.equal(java.predictions.sexual.reference_count, 32);
         assert.equal(mapping.provinces.length, 38);
         assert.equal(Object.keys(mapping.source_by_display_code).length, 38);
         assert.equal(await (await fetch(`${publishedBase}/map?year=2024`)).text().then((body) => body.includes('"features"')), false);
